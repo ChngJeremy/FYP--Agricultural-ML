@@ -16,8 +16,6 @@ camera = cv2.VideoCapture(0)
 
 # Image recognition model (replace with your own implementation)
 # def analyze_plant_condition(image):
-    # Your image recognition code here
-    # Return the condition of the plant
 
 def read_temperature():
     return temperature_sensor.get_temperature()
