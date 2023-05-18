@@ -1,19 +1,22 @@
-#collect sensor data from sensor.py
 import time
+from sensor import collect_sensor_data
 
+# Collection interval in seconds
+DATA_COLLECTION_INTERVAL = 5
 
-from sensor import collect_sensor_data #import collect_sensor_data from sensor.py
-
-
+# Main function
 def main():
     while True:
-        temperature, moisture_level, ph_level, plant_condition = collect_sensor_data()
-        print("Temperature: {}".format(temperature))
-        print("Moisture level: {}".format(moisture_level))
-        print("pH level: {}".format(ph_level))
-        print("Plant condition: {}".format(plant_condition))
-        print()
-        time.sleep(1)
+        # Collect sensor data
+        entropy = collect_sensor_data()
 
-if __name__ == "__main__":
+        # Print entropy value
+        print(f"Entropy: {entropy}")
+        print("-------------------------")
+
+        # Delay before next iteration
+        time.sleep(DATA_COLLECTION_INTERVAL)
+
+# Execute the main function
+if __name__ == '__main__':
     main()
