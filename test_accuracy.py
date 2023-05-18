@@ -5,8 +5,13 @@ import matplotlib.pyplot as plt
 with open('epochs.json', 'r') as f:
     epochs_list = json.load(f)
 
-# Load the accuracy values from wherever you saved them (e.g., a separate file or database)
+# Load the history dictionary from the JSON file
+with open('history.json', 'r') as f:
+    history = json.load(f)
+
 # Replace 'train_accuracy' and 'val_accuracy' with the actual accuracy values
+train_accuracy = history.history['accuracy']
+val_accuracy = history.history['val_accuracy']
 
 # Plot the accuracy curve
 plt.plot(epochs_list, train_accuracy, 'b.-', label='Training Accuracy')

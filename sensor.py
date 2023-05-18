@@ -48,13 +48,28 @@ def read_humidity_dht11():
 def read_co2_level():
     co2_voltage = adc_ch0.voltage
     # Conversion from voltage to CO2 level
-    co2_level = ...  # Your calculation here
+    co2_level = convert_voltage_to_co2(co2_voltage)
+    return co2_level
+
+def convert_voltage_to_co2(voltage_reading):
+    voltage_range = 5.0  # Maximum voltage range of the sensor
+    co2_range = 5000  # Maximum CO2 range in ppm (parts per million)
+    
+    # Calculate the CO2 level based on the voltage reading and calibration parameters
+    co2_level = (voltage_reading / voltage_range) * co2_range
     return co2_level
 
 def read_moisture_content():
     moisture_voltage = adc_ch1.voltage
-    # Conversion from voltage to moisture content
-    moisture_content = ...  # Your calculation here
+    # Conversion parameters specific to your moisture sensor
+    voltage_min = 0.0  # Minimum voltage reading
+    voltage_max = 3.3  # Maximum voltage reading
+    moisture_min = 0  # Minimum moisture content
+    moisture_max = 100  # Maximum moisture content
+    
+    # Calculate the moisture content based on the voltage reading and calibration parameters
+    moisture_content = ((moisture_voltage - voltage_min) / (voltage_max - voltage_min)) * (moisture_max - moisture_min) + moisture_min
+    
     return moisture_content
 
 def collect_sensor_data():
