@@ -6,11 +6,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
 # Set the path to the directory containing the plant images
-data_dir = 'path/to/dataset'
+data_dir = 'path/to/dataset'    
 
 # Set the paths to the image directories for different plant conditions
 healthy_dir = os.path.join(data_dir, 'healthy')
 unhealthy_dir = os.path.join(data_dir, 'unhealthy')
+
 
 # Set up empty lists to store image paths and labels
 image_paths = []
