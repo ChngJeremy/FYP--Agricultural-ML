@@ -1,149 +1,112 @@
-import os
+import tensorflow_hub as hub
+import tensorflow as tf
 import numpy as np
-import cv2
-from plantcv import plantcv as pcv
-from keras.preprocessing.image import ImageDataGenerator
-from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint
-from sklearn.metrics import classification_report, confusion_matrix
 
-# Set the path to the dataset directory
-data_dir = 'path/to/dataset'
 
-# Set the image size for resizing
-image_size = (224, 224)
+def build_model(input_shape, num_classes):
+    model = hub.load("https://kaggle.com/models/rishitdagli/plant-disease/frameworks/TensorFlow2/variations/plant-disease/versions/1")
+    
+    # Adjust the input layer to match the desired input shape
+    model.build([None, *input_shape])
+    
+    # Add a new output layer for the specified number of classes
+    model = tf.keras.Sequential([
+        model,
+        tf.keras.layers.Dense(num_classes, activation='softmax')
+    ])
+    
+    return model
 
-# Set the batch size and number of epochs
-batch_size = 32
-epochs = 10
+def compile_model(model, learning_rate):
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
-# Create separate directories for training and testing images
-train_dir = os.path.join(data_dir, 'train')
-test_dir = os.path.join(data_dir, 'test')
+def preprocess_image(image):
+    # Resize the image to match the input shape of the model
+    image = image.resize((224, 224))
+    
+    # Convert the image to a NumPy array
+    image_array = np.asarray(image)
+    
+    # Convert the NumPy array to a float32 data type
+    image_array = image_array.astype('float32')
+    
+    # Normalize the pixel values from [0, 255] to [-1, 1]
+    normalized_image_array = (image_array / 127.0) - 1
+    
+    # Return the preprocessed image as a NumPy array
+    return normalized_image_array
 
-# Get the plant class names from the subdirectories in the training directory
-class_names = sorted(os.listdir(train_dir))
-num_classes = len(class_names)
+def create_data_generator(preprocess_function, batch_size, image_size, shuffle=False):
+    return tf.keras.preprocessing.image.ImageDataGenerator(
+        preprocessing_function=preprocess_function,
+        batch_size=batch_size,
+        target_size=image_size,
+        shuffle=shuffle
+    )
 
-# Create an image data generator for data augmentation and normalization
-datagen = ImageDataGenerator(
-    rescale=1./255,
-    rotation_range=20,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    horizontal_flip=True
-)
+def load_dataset(dataset_path, image_size, batch_size):
+    train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
+        dataset_path,
+        validation_split=0.2,
+        subset='training',
+        seed=123,
+        image_size=image_size,
+        batch_size=batch_size
+    )
+    
+    val_dataset = tf.keras.preprocessing.image_dataset_from_directory(  
+        dataset_path,
+        validation_split=0.2,
+        subset='validation',
+        seed=123,
+        image_size=image_size,
+        batch_size=batch_size
+    )
+    
+    return train_dataset, val_dataset
 
-# Create the training data generator
-train_generator = datagen.flow_from_directory(
-    train_dir,
-    target_size=image_size,
-    batch_size=batch_size,
-    class_mode='categorical'
-)
+def image_dataset_from_directory(directory, labels='inferred', label_mode='int', class_names=None, color_mode='rgb', batch_size=32, image_size=(256, 256), shuffle=True, seed=None, validation_split=None, subset=None, interpolation='bilinear', follow_links=False):
+    return tf.keras.preprocessing.image_dataset_from_directory(
+        directory,
+        labels=labels,
+        label_mode=label_mode,
+        class_names=class_names,
+        color_mode=color_mode,
+        batch_size=batch_size,
+        image_size=image_size,
+        shuffle=shuffle,
+        seed=seed,
+        validation_split=validation_split,
+        subset=subset,
+        interpolation=interpolation,
+        follow_links=follow_links
+    )
 
-# Create the validation data generator
-val_generator = datagen.flow_from_directory(
-    val_dir,
-    target_size=image_size,
-    batch_size=batch_size,
-    class_mode='categorical'
-)
+def load_image(image_path): 
+    return tf.keras.preprocessing.image.load_img(image_path)
 
-# Build the model architecture
-model = Sequential()
-model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(image_size[0], image_size[1], 3)))
-model.add(MaxPooling2D((2, 2)))
-model.add(Conv2D(64, (3, 3), activation='relu'))
-model.add(MaxPooling2D((2, 2)))
-model.add(Conv2D(128, (3, 3), activation='relu'))
-model.add(MaxPooling2D((2, 2)))
-model.add(Flatten())
-model.add(Dense(256, activation='relu'))
-model.add(Dropout(0.5))
-model.add(Dense(num_classes, activation='softmax'))
 
-# Compile the model
-model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
+def train_model(model, train_generator, val_generator, epochs):
+    model.fit(train_generator, validation_data=val_generator, epochs=epochs)
 
-# Create a callback to save the model weights after each epoch
-checkpoint_callback = ModelCheckpoint(
-    'model_weights.h5',
-    monitor='val_loss',
-    save_weights_only=True,
-    save_best_only=False,
-    verbose=1
-)
+def save_model_weights(model, weights_path):
+    model.save_weights(weights_path)
 
-# Train the model
-history = model.fit(
-    train_generator,
-    steps_per_epoch=len(train_generator),
-    epochs=epochs,
-    validation_data=val_generator,
-    validation_steps=len(val_generator),
-    callbacks=[checkpoint_callback]
-)
+def load_model_weights(model, weights_path):
+    model.load_weights(weights_path)
 
-# Evaluate the model on the testing set
-test_generator = datagen.flow_from_directory(
-    test_dir,
-    target_size=image_size,
-    batch_size=batch_size,
-    class_mode='categorical',
-    shuffle=False
-)
-
-test_loss, test_accuracy = model.evaluate(test_generator, steps=len(test_generator))
-print('Test Loss:', test_loss)
-print('Test Accuracy:', test_accuracy)
-
-# Generate predictions on the testing set
-test_generator.reset()
-predictions = model.predict(test_generator, steps=len(test_generator), verbose=1)
-predicted_labels = np.argmax(predictions, axis=1)
-
-# Get the true labels from the test generator
-true_labels = test_generator.classes
-
-# Get the class indices and their corresponding labels
-class_indices = test_generator.class_indices
-labels = [class_name for class_name in class_indices.keys()]
-
-# Generate a classification report and confusion matrix
-report = classification_report(true_labels, predicted_labels, target_names=labels)
-matrix = confusion_matrix(true_labels, predicted_labels)
-print(report)
-print(matrix)
-
-# Perform image processing and feature extraction on the test set using PlantCV
-test_features = []
-for image_path in test_generator.filenames:
-    # Load the image
-    img = cv2.imread(os.path.join(test_dir, image_path))
-
-    # Convert the image from BGR to RGB
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    # Apply PlantCV preprocessing and analysis steps
-    # Modify this section to suit your specific analysis needs
-    # Example steps: segmentation, feature extraction
-    img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
-    _, img_binary = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    mask = np.zeros_like(img_binary)
-    contours, _ = cv2.findContours(img_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(mask, contours, -1, (255, 255, 255), thickness=cv2.FILLED)
-    test_features.append(pcv.measurements.shannon_entropy(mask))
-
-# Train a Support Vector Machine (SVM) classifier using the extracted features
-clf = SVC()
-clf.fit(features, y_train)
-
-# Use the trained classifier to predict the plant condition for the test set
-predictions = clf.predict(test_features)
-
-# Calculate the accuracy of the classifier
-accuracy = np.mean(predictions == true_labels)
-print('Plant Condition Accuracy:', accuracy)
+def classify_image(model, image):
+    # Preprocess the image
+    preprocessed_image = preprocess_image(image)
+    
+    # Reshape the preprocessed image to match the expected input shape
+    input_data = np.expand_dims(preprocessed_image, axis=0)
+    
+    # Make predictions using the model
+    predictions = model.predict(input_data)
+    
+    # Get the predicted class label
+    predicted_label = np.argmax(predictions, axis=1)
+    
+    return predicted_label
