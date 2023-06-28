@@ -1,4 +1,6 @@
 from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+
 
 def evaluate_model(model, test_generator):
     test_loss, test_accuracy = model.evaluate(test_generator, steps=len(test_generator))
